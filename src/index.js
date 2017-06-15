@@ -1,21 +1,26 @@
 /**
  * Created by swxy on 2017/5/3.
+ *
+ * JSONScript is a tiny JSON parser written in JavaScript
+ *
+ * This file define the main parser interface
  */
 
-const path = require('path');
-const fs = require('fs');
-const jsonFilePath = path.resolve(process.argv[2]);
-const jsPath = jsonFilePath.replace('.json', '.js');
-const writeStream = fs.createWriteStream(jsPath);
-const readStream = fs.createReadStream(jsonFilePath);
-writeStream.write('module.exports = ');
-readStream.pipe(writeStream);
-writeStream.on('close', () => {
-    console.log('write success');
-    const jsonObj = require(jsPath);
-    const jsonData = JSON.stringify(jsonObj, null, 4);
-    fs.writeFile(jsonFilePath, jsonData, {encoding: 'utf-8'}, (err) => {
-        if (err) throw err;
-        console.log('The file has been formatted!');
-    })
-});
+const Parser = require('./state');
+
+function parse(input, options) {
+    // todo
+    const p = parser(options, input);
+    while (p.type !== 'end') {
+        p.nextToken();
+    }
+    return p;
+}
+
+
+function parser(options, input) {
+    return new Parser(String(input))
+}
+
+
+module.exports = parse;

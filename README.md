@@ -1,14 +1,5 @@
 # json format
-format js type json
+格式化json，如果格式不正确，输出相关错误以及错误位置
 
-```json
-{
-    a: 1
-}
-```
-will be transformed to 
-```json
-{
-    "a": 1
-}
-```
+# step 1
+对json字符序列化。读取token
