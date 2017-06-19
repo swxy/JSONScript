@@ -11,4 +11,4 @@ fs.readFile(path.join(__dirname, './test.json'), (err, data) => {
     }
     const p = Parser(data);
     console.dir(p.body);
-})
+});

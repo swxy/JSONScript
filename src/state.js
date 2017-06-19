@@ -28,14 +28,12 @@ class Parser {
         this.lineStart = 0;
         this.curLine = 1;
         this.body = [];
+        this.expects = []; // 用于放期待的结束符合，例如遇到 { 则往里面加一个 }
         this.type = null;
     }
 
     nextToken() {
         this.start = this.pos;
-        if (this.start === 6) {
-            debugger
-        }
         this.skipSpace();
         // 结束
         if (this.pos >= this.input.length) return this.finishToken('end');
@@ -46,21 +44,32 @@ class Parser {
     }
 
     getTokenFormCode(code) {
+        let expect;
         switch (code) {
             case 44:
                 this.pos++;
                 return this.finishToken(TokenTypes.comma); // ","
             case 91:
                 this.pos++;
-                return this.finishToken(TokenTypes.bracketL);
+                this.expects.push(TokenTypes.bracketR);
+                return this.finishToken(TokenTypes.bracketL); // [
             case 93:
                 this.pos++;
-                return this.finishToken(TokenTypes.bracketR);
+                expect = this.expects.pop();
+                if (expect !== TokenTypes.bracketR) {
+                    this.raise(this.pos, 'Expect ' + expect + '  rather than ' + TokenTypes.bracketR);
+                }
+                return this.finishToken(TokenTypes.bracketR); // ]
             case 123:
                 this.pos++;
+                this.expects.push(TokenTypes.braceR);
                 return this.finishToken(TokenTypes.braceL);
             case 125:
                 this.pos++;
+                expect = this.expects.pop();
+                if (expect !== TokenTypes.braceR) {
+                    this.raise(this.pos, 'Expect ' + expect + '  rather than ' + TokenTypes.braceR);
+                }
                 return this.finishToken(TokenTypes.braceR);
             case 58:
                 this.pos++;
@@ -79,6 +88,7 @@ class Parser {
             case 57: // 1-9
                 return this.readNumber(false);
             default:
+
                 return false;
         }
     }
@@ -103,21 +113,52 @@ class Parser {
         const chunkStart = this.pos;
         while (1) {
             if (this.pos > this.input.length) {
-                return console.error("Unterminated string constant");
+                this.raise(this.pos, "Unterminated string constant");
             }
             let code = this.input.charCodeAt(this.pos);
             if (code === quote) {
                 return this.finishToken('string', this.input.slice(chunkStart, this.pos++));
             }
             if (isNewLine(code)) {
-                return console.error("Unterminated string constant");
+                this.raise(this.pos, "Unterminated string constant");
             }
             this.pos++;
         }
     }
 
-    readNumber(code) {
+    readNumber(startsWithDot) {
+        let start = this.pos, isFloat = false;
+        if (!startsWithDot && this.readInt() === null) this.raise(start, "Invalid number")
+        let next = this.input.charCodeAt(this.pos)
+        if (next === 46) { // '.'
+            ++this.pos;
+            this.readInt();
+            isFloat = true;
+            next = this.input.charCodeAt(this.pos)
+        }
+        if (isIdentifierChar(next)) this.raise(this.pos, "Identifier directly after number")
 
+        let str = this.input.slice(start, this.pos), val;
+
+        if (isFloat) val = parseFloat(str);
+        else val = parseInt(str, 10);
+        return this.finishToken(TokenTypes.number, val);
+    }
+
+    readInt() {
+        let start = this.pos, total = 0;
+        for (let i = 0, e = Infinity; i < e; ++i) {
+            let code = this.input.charCodeAt(this.pos), val;
+            if (code >= 48 && code <= 57) val = code - 48; // 0-9
+            else {
+                val = Infinity;
+                break
+            }
+            ++this.pos;
+            total = total * 10 + val;
+        }
+        if (this.pos === start) return null;
+        return total;
     }
 
     finishToken(type, val) {
@@ -130,6 +171,9 @@ class Parser {
                 start: this.start,
                 line: this.curLine
             }));
+        }
+        if (type === 'end' && this.expects.length) {
+            this.raise(this.pos, 'Expect ' + this.expects.pop());
         }
     }
 
@@ -146,6 +190,7 @@ class Parser {
                         ++this.pos;
                     }
                 case 10:
+                    this.expectComma(this.pos);
                     ++this.pos;
                     ++this.curLine;
                     this.lineStart = this.pos;
@@ -154,6 +199,44 @@ class Parser {
                     return;
             }
         }
+    }
+
+    expectComma(pos) {
+        let code = this.input.charCodeAt(pos - 1);
+        let next = this.input.charCodeAt(pos + 1);
+        let start = pos - 1;
+        while(code === 32 && start !== 0) {
+            start--;
+            code = this.input.charCodeAt(start);
+        }
+        if (start === 0) {
+            return null;
+        }
+        if (code === 44) { // ,
+            return true;
+        }
+        if (code === 91 || code === 123) { // [ {
+            return true;
+        }
+        start = pos + 1;
+        while (next === 32) {
+            start++;
+            next = this.input.charCodeAt(start);
+        }
+        if (next === 93 || next === 125) {
+            return true;
+        }
+        this.raise(pos + 1, 'Expect ,');
+    }
+
+    raise(pos, message) {
+        // let loc = getLineInfo(this.input, pos);
+        message += " (" + this.curLine + ":" + (this.pos - this.lineStart ) + ")";
+        let err = new SyntaxError(message);
+        err.pos = pos;
+        // err.loc = loc;
+        err.raisedAt = this.pos;
+        throw err;
     }
 }
 

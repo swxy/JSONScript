@@ -9,7 +9,8 @@ const tyeps = {
     braceR: '}',
     colon: ':',
     comma: ',',
-    string: 'string'
+    string: 'string',
+    number: 'number'
 };
 
 tyeps.inclue = Object.keys(tyeps).map(key => tyeps[key]);

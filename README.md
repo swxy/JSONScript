@@ -3,3 +3,22 @@
 
 # step 1
 对json字符序列化。读取token
+
+# step 2
+生成AST
+
+```json
+{
+    "a": "1"
+}
+```
+转化成:
+```json
+{
+    "type": "JSON",
+    "body": [{
+        "key": "a",
+        "value": "1"
+    }]
+}
+```
